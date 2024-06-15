@@ -1,0 +1,14 @@
+simple-parsing
+pydantic
+tqdm
+pandas
+
+diffusers
+huggingface-hub
+numpy >= 1.26
+pillow >= 9.5.0
+timm @ git+https://github.com/huggingface/pytorch-image-models@main#egg=timm
+tokenizers
+torch >= 2.0.0
+torchvision
+transformers
