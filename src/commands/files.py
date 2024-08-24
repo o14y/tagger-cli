@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
-from typing import *
+from pathlib import Path
+from typing import List, Any
 from simple_parsing import field, subparsers
 from models.context import Context
 from controllers.captions import Captions
@@ -23,24 +24,51 @@ class SelectFiles:
 class ListFiles:
     absolute :bool = field(default=False, help='Show as absolute path')
     all :bool = field(default=False, help='Show only selected files')
+    tag :str = field(default=None, help='Filter by tag')
+    sort :bool = field(default=False, help='Sort tags')
     def run(self, context :Context):
         c = Captions(context)
-        for i in c.list(selected=not self.all):
+        soreted_list = []
+        for i in c.list(selected=not self.all, filter=self.tag):
             p = i.path
             if not self.absolute:
                 p = c.relative(context.root_path, p)
-            print(f"* {p}: {', '.join(i.tags)}")
+            if self.sort:
+                soreted_list.append((p, ', '.join(sorted(i.tags))))
+            else:
+                print(f"* {p}: {', '.join(i.tags)}")
+        if self.sort:
+            soreted_list = sorted(soreted_list, key=lambda x: x[1])
+            for p, tags in soreted_list:
+                print(f"* {p}: {tags}")
 
 @dataclass
-class AddFiles:
+class DiffFiles:
+    absolute :bool = field(default=False, help='Show as absolute path')
     def run(self, context :Context):
-        pass
+        c = Captions(context)
+        r = c.diff()
+        print(f'* [ALL]: {', '.join(r.common)}')
+        for path in sorted(r.dataset):
+            tags = sorted(r.dataset[path])
+            if not self.absolute:
+                path = c.relative(context.root_path, Path(path))
+            print(f"* {path}: {', '.join(tags)}")
+
+@dataclass
+class SaveFiles:
+    def run(self, context :Context):
+        c = Captions(context)
+        count = c.save()
+        print(f"{count} file{'s' if count>1 else ''} saved")
 
 @dataclass
 class Files(ListFiles):
     command: Any = subparsers(default=None,
                               positional=True,
-                              subcommands={"list": ListFiles})
+                              subcommands={"list": ListFiles,
+                                           "select": SelectFiles,
+                                           "diff": DiffFiles})
     def run(self, context :Context):
         if self.command:
             return self.command.run(context)

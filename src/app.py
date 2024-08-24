@@ -27,12 +27,10 @@ class App:
                 break
             except KeyboardInterrupt:
                 print()
-            except ValueError as e:
-                print(e)
             except SystemExit as e:
                 pass
             except Exception as e:
-                print(e, file=sys.stderr)
+                print(f"⚠ {e}", file=sys.stderr)
 
 def main():
     print('ctrl+d to exit.')

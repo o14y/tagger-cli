@@ -1,6 +1,9 @@
 import json
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
+
+from controllers.captions import Captions
+from models.context import Context
 from .transaction import Txn
 
 @dataclass
@@ -9,6 +12,7 @@ class TagsListItem:
     count: int
 
 class Tags:
+    context: Context
     def __init__(self, context):
         self.context = context
     def list(self, filter:str = None, skip:int = 0, head:int = -1, threshold:int = 1) -> Iterable[TagsListItem]:
@@ -27,16 +31,13 @@ class Tags:
                 yield TagsListItem(tag, count)
     def add(self, 
             tags: List[str], 
-            tail: bool=False,
-            progress_wrapper: Optional[Callable] = None, 
-            progress_post: Optional[Callable] = None):
-        target = self.context.get_paths()
-        if progress_wrapper:
-            target = progress_wrapper(target)
+            tail: bool=False):
+        c = Captions(self.context)
+        target = c.list(selected=True)
         count = 0
         with Txn.begin(self.context.conn) as cur:
-            for p in target:
-                existing = list(self.context.get_tags(p))
+            for i in target:
+                existing = i.tags
                 adding: List[str] = []
                 for tag in tags:
                     if tag not in existing:
@@ -47,22 +48,21 @@ class Tags:
                     existing += tags
                 else:
                     existing = tags + existing
-                cur.execute("UPDATE images SET tags = ? WHERE path = ?", (json.dumps(existing), str(p)))
+                c.update(i.path, tags=existing)
                 count += 1
-        if progress_post:
-            progress_post()
         return count
     def remove(self, 
                tags: List[str], 
                progress_wrapper: Optional[Callable] = None, 
                progress_post: Optional[Callable] = None):
-        target = self.context.get_paths()
+        c = Captions(self.context)
+        target = c.list(selected=True)
         if progress_wrapper:
             target = progress_wrapper(target)
         count = 0
         with Txn.begin(self.context.conn) as cur:
-            for p in target:
-                existing = list(self.context.get_tags(p))
+            for i in target:
+                existing = i.tags
                 removing: List[str] = []
                 for t in tags:
                     if t in existing:
@@ -71,7 +71,7 @@ class Tags:
                     continue
                 for t in removing:
                     existing.remove(t)
-                cur.execute("UPDATE image SET tags = ? WHERE path = ?", (json.dumps(existing), str(p)))
+                c.update(i.path, tags=existing)
                 count += 1
         if progress_post:
             progress_post()

@@ -1,10 +1,13 @@
 from typing import *
 from dataclasses import dataclass
 from simple_parsing import field, subparsers
+from tqdm import tqdm
 from models.context import Context
 from controllers.tags import Tags as TagsController
 from controllers.captions import Captions
 from controllers.infer import infer_tags
+import subprocess
+
 
 @dataclass
 class AddTags:
@@ -41,10 +44,12 @@ class InferTags:
     overwrite: bool = field(default=False, help='Overwrite existing tags')
     def run(self, context :Context):
         c = Captions(context)
-        files = [x.path for x in c.list(selected=True) if self.overwrite or x.tags is None]
+        files = [x.path for x in c.list(selected=True) if self.overwrite or x.tags is None or len(x.tags) == 0]
         if len(files) == 0:
             return
-        for r in infer_tags(files):
+        progress = tqdm(infer_tags(files), total=len(files))
+        progress.colour = 'green'
+        for r in progress:
             c.update(r.path, r.tags)
 
 @dataclass

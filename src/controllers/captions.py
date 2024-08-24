@@ -18,7 +18,7 @@ def load_caption(path: Path) -> Iterable[str]:
 
 @dataclass
 class FilesListItem:
-    path: str
+    path: Path
     tags: List[str]
 
 @dataclass
@@ -80,22 +80,34 @@ class Captions:
                         tag.append(t)
                 dataset[k] = tag
             return DiffResult(common, dataset)
-    def list(self, selected:bool):
+    def list(self, selected:bool, filter:str=None):
         with Txn.begin(self.context.conn) as cur:
-            query = ''
+            query = ""
             if selected:
-                query = 'SELECT i.path, i.tags FROM images as i, selected as s ' \
-                        'WHERE i.path = s.path '
+                query = "(" \
+                        "SELECT DISTINCT i.path as p FROM images as i, selected as s "
+                query += ", JSON_EACH(i.tags) as e " if filter is not None else " "
+                query += "WHERE i.path = s.path "
+                query += "AND e.VALUE LIKE ? " if filter is not None else " "
+                query += ") "
             else:
-                query = 'SELECT i.path, i.tags FROM images as i '
-            query += 'ORDER BY i.path ASC'
-            cur.execute(query)
+                query = "(" \
+                        "SELECT DISTINCT i.path as p FROM images as i "
+                query += ", JSON_EACH(i.tags) as e WHERE e.VALUE LIKE ? " if filter is not None else " "
+                query += ") "
+            query = "SELECT p, i.tags FROM " + query + " as v, images as i WHERE v.p = i.path " \
+                    "ORDER BY p ASC "
+            if filter:
+                cur.execute(query, ("%" if filter is None else "%"+filter+"%", ))
+            else:
+                cur.execute(query)
             for path, tags in cur:
-                yield FilesListItem(path, json.loads(tags))
-    def relative(self, root_path: Path, absolute_path) -> str:
-        p = root_path.as_posix() + '/'
-        if absolute_path.startswith(p):
-            absolute_path = absolute_path[len(p):]
+                yield FilesListItem(Path(path), json.loads(tags))
+    def relative(self, root_path: Path, absolute_path: Path) -> Path:
+        root_as_posix = root_path.as_posix() + '/'
+        absolute_as_posix = absolute_path.as_posix()
+        if absolute_as_posix.startswith(root_as_posix):
+            absolute_path = Path(absolute_as_posix[len(root_as_posix):])
         return absolute_path
     def update(self, path: Path, tags: List[str]):
         with Txn.begin(self.context.conn) as cur:
