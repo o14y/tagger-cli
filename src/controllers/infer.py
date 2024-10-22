@@ -88,11 +88,11 @@ def _get_tags(
     char_labels = dict(sorted(char_labels.items(), key=lambda item: item[1], reverse=True))
 
     # Combine general and character labels, sort by confidence
-    combined_names = [x for x in gen_labels]
-    combined_names.extend([x for x in char_labels])
+    combined_names = [x for x in char_labels]
+    combined_names.extend([x.replace('_', ' ') for x in gen_labels])
 
     # Convert to a string suitable for use as a training caption
-    tags = ', '.join(combined_names)
+    tags = ','.join(combined_names)
     taglist = tags.replace('(', '\\(').replace(')', '\\)')
     return taglist.split(','), taglist, rating_labels, char_labels, gen_labels
 
@@ -153,13 +153,17 @@ def infer_tags(files: List[str],
     import os
     from tqdm import tqdm
 
+    # Check if the provided model is expected
     if model not in MODEL_REPO_MAP:
         raise ValueError(f'Unknown model "{model}". Available models: {list(MODEL_REPO_MAP.keys())}')
 
+    # Use GPU if available
     torch_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Load the model
     log = logging.getLogger(__name__)
     repo_id = MODEL_REPO_MAP.get(model)
-    
+
     log.info(f'Loading model "{model}" from "{repo_id}"...')
     model: nn.Module = timm.create_model('hf-hub:' + repo_id).eval()
     state_dict = timm.models.load_state_dict_from_hf(repo_id)

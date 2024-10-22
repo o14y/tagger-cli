@@ -76,3 +76,17 @@ class Tags:
         if progress_post:
             progress_post()
         return count
+    def replace(self, old: str, new: str):
+        c = Captions(self.context)
+        target = c.list(selected=True, filter=old)
+        count = 0
+        with Txn.begin(self.context.conn) as cur:
+            for i in target:
+                res = []
+                for t in i.tags:
+                    t = t.replace(old, new).strip(' ')
+                    if len(t) != 0 and t not in res:
+                        res.append(t)
+                c.update(i.path, tags=res)
+                count += 1
+        return count

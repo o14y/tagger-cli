@@ -17,7 +17,6 @@ class App:
         while context.exiting == False:
             try:
                 line = input('> ')
-                readline.add_history(line)
                 args = shlex.split(line)
                 parser = ArgumentParser()
                 parser.add_arguments(Cli, dest='cli')

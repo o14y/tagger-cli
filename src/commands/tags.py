@@ -6,7 +6,6 @@ from models.context import Context
 from controllers.tags import Tags as TagsController
 from controllers.captions import Captions
 from controllers.infer import infer_tags
-import subprocess
 
 
 @dataclass
@@ -37,20 +36,33 @@ class ListTags:
         kv = {k:v for k,v in self.__dict__.items() if v is not None}
         index = c.list(**kv)
         for i in index:
-            print(f'{i.count:4d} {i.tag}, {context.dictionary[i.tag]}')
+            text = context.dictionary[i.tag]
+            if text is None:
+                text = context.dictionary[i.tag.replace(' ', '_')]
+            print(f'{i.count:4d} {i.tag}, {text}')
 
 @dataclass
 class InferTags:
     overwrite: bool = field(default=False, help='Overwrite existing tags')
+    model: str = field(default='vit', help='Model to use for inference. vit, swinv2 or convnext')
     def run(self, context :Context):
         c = Captions(context)
         files = [x.path for x in c.list(selected=True) if self.overwrite or x.tags is None or len(x.tags) == 0]
         if len(files) == 0:
             return
-        progress = tqdm(infer_tags(files), total=len(files))
+        progress = tqdm(infer_tags(files, model=self.model), total=len(files))
         progress.colour = 'green'
         for r in progress:
             c.update(r.path, r.tags)
+
+@dataclass
+class ReplaceTags:
+    old :str = field(positional=True, hint='a part of tag to be replaced')
+    new :str = field(positional=True, hint='string to replace with', default='')
+    def run(self, context :Context):
+        c = TagsController(context)
+        count = c.replace(self.old, self.new)
+        print(f'{count} file{"s" if count>1 else ""} updated')
 
 @dataclass
 class Tags(ListTags):
@@ -58,7 +70,8 @@ class Tags(ListTags):
                               subcommands={'add': AddTags,
                                            'remove': RemoveTags,
                                            'list': ListTags,
-                                           'auto': InferTags
+                                           'auto': InferTags, 
+                                           'replace': ReplaceTags,
                                            })
     def run(self, context :Context):
         if self.command:
