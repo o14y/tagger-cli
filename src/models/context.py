@@ -11,3 +11,8 @@ class Context():
     def __init__(self, path: Path):
         self.root_path = path
         self.dataset = Dataset(self.conn).load(path)
+    def lookup(self, key: str) -> str:
+        v = self.dictionary[key]
+        if v is None:
+            v = self.dictionary[key.replace(' ', '_')]
+        return v

@@ -9,12 +9,15 @@ from controllers.captions import Captions
 @dataclass
 class SelectFiles:
     exprs :List[str] = field(positional=True, hint='List of expressions to select files')
+    strict :bool = field(default=False, help='Use strict matching')
     all :bool = field(default=False, help='Select all files')
     def run(self, context :Context):
         c = Captions(context)
         if self.all:
             count = c.select_all_files()
         elif self.exprs:
+            if not self.strict:
+                self.exprs = [f'.*{e}.*' for e in self.exprs]
             count = c.select_files(self.exprs)
         else:
             raise ValueError('Must provide expressions or use --all')

@@ -36,10 +36,21 @@ class ListTags:
         kv = {k:v for k,v in self.__dict__.items() if v is not None}
         index = c.list(**kv)
         for i in index:
-            text = context.dictionary[i.tag]
-            if text is None:
-                text = context.dictionary[i.tag.replace(' ', '_')]
+            text = context.lookup(i.tag)
             print(f'{i.count:4d} {i.tag}, {text}')
+
+@dataclass
+class VerifyTags:
+    def run(self, context :Context):
+        c = TagsController(context)
+        index = c.list(selected=True)
+        verified = list(c.verify(index))
+        if len(verified) == 0:
+            print('All tags are in the dictionary')
+        else:
+            print(f'{len(verified)} tags are not in the dictionary:')
+            for i in verified:
+                print(f'{i.count:4d} {i.tag}')
 
 @dataclass
 class InferTags:
@@ -65,6 +76,25 @@ class ReplaceTags:
         print(f'{count} file{"s" if count>1 else ""} updated')
 
 @dataclass
+class PruneTags:
+    min_length :int = field(default=3, help='Length of tags to keep')
+    inclusion :bool = field(default=False, help='Prune words included in other words')
+    character :bool = field(default=False, help='Prune words included in characters')
+    def run(self, context :Context):
+        c = TagsController(context)
+        count, pruned = c.prune(self.min_length, 
+                        inclusion=self.inclusion,
+                        character=self.character)
+        pruned = list(pruned)
+        pruned.sort()
+        if len(pruned) == 0:
+            print('No tag is pruned')
+        else:
+            print(f'{len(pruned)} tags have been pruned:')
+            for p in pruned:
+                print(p)
+
+@dataclass
 class Tags(ListTags):
     command :Any = subparsers(default=None,
                               subcommands={'add': AddTags,
@@ -72,6 +102,8 @@ class Tags(ListTags):
                                            'list': ListTags,
                                            'auto': InferTags, 
                                            'replace': ReplaceTags,
+                                           'prune': PruneTags,
+                                           'verify': VerifyTags
                                            })
     def run(self, context :Context):
         if self.command:
