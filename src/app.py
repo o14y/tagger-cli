@@ -29,7 +29,7 @@ class App:
             except SystemExit as e:
                 pass
             except Exception as e:
-                print(f"⚠ {e}", file=sys.stderr)
+                logging.exception(f"⚠ {e}")
 
 def main():
     print('ctrl+d to exit.')

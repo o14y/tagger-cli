@@ -1,0 +1,17 @@
+^(red|blue|green)[_ ](hair|eyes)$
+^(black|white|gray)[_ ](hair|eyes)$
+^(yellow|brown|orange|blonde)[_ ](hair|eyes)$
+^(purple|pink)[_ ](hair|eyes)$
+^(aqua)[_ ](hair|eyes)$
+^(long|short|medium)[_ ]hair$
+^(straight)[_ ]hair$
+^very[_ ]long[_ ]hair$
+^(small|medium|large)[_ ]breasts$
+^hair[_ ]between[_ ]eyes$
+^sidelocks$
+^braid$
+^french[_ ]braid$
+^short[_ ]hair[_ ]with[_ ]long[_ ]locks$
+^(|[a-z]+[_ ])hair[_ ]bun$
+^[a-z]+[_ ]bangs$
+^curly hair$

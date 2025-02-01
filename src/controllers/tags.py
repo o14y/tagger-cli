@@ -6,6 +6,8 @@ from controllers.captions import Captions
 from models.context import Context
 from .transaction import Txn
 
+import Levenshtein as levenshtein
+
 @dataclass
 class TagsListItem:
     tag: str
@@ -122,24 +124,8 @@ class Tags:
                     c.update(i.path, tags=res)
                     count += 1
         if character:
-            keywords = ['^red[_ ](hair|eyes)$',
-                        '^blue[_ ](hair|eyes)$',
-                        '^green[_ ](hair|eyes)$',
-                        '^yellow[_ ](hair|eyes)$',
-                        '^black[_ ](hair|eyes)$',
-                        '^white[_ ](hair|eyes)$',
-                        '^gray[_ ](hair|eyes)$',
-                        '^brown[_ ](hair|eyes)$',
-                        '^purple[_ ](hair|eyes)$',
-                        '^pink[_ ](hair|eyes)$',
-                        '^orange[_ ](hair|eyes)$',
-                        '^long[_ ]hair$',
-                        '^short[_ ]hair$',
-                        '^medium[_ ]hair$',
-                        '^small[_ ]breasts$',
-                        '^medium[_ ]breasts$',
-                        '^large[_ ]breasts$'
-                        ]
+            with open('assets/character_tags.txt', 'r') as file:
+                keywords = [line.strip() for line in file.readlines() if not len(line) == 0 or not line.isspace()]
             with Txn.begin(self.context.conn) as cur:
                 for i in target:
                     res = []
@@ -150,4 +136,25 @@ class Tags:
                             pruned.append(t)
                     c.update(i.path, tags=res)
                     count += 1
-        return count, pruned
+        return count, 
+    def distance(self, threshold:int) -> Iterable[tuple[str, str, int]]:
+        """
+        タグ間のレーベンシュタイン距離を計算し、指定された閾値以下のものを返却します。
+
+        引数:
+            threshold (int): 返却する最大距離
+
+        yield:
+            Iterable[Tuple[str, str, int]]: タグとその距離を含むタプル。
+
+        注意:
+            この関数は、リスト内の各タグを他のすべてのタグと比較し、レーベンシュタイン距離を計算します。
+            距離が閾値以下の場合、タグとその距離が生成されます。
+        """
+        tags = list(self.list())
+        while len(tags) > 0:
+            t = tags.pop(0)
+            for a in tags:
+                d = levenshtein.distance(t.tag, a.tag)
+                if d <= threshold:
+                    yield (t.tag, a.tag, d)

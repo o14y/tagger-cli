@@ -43,7 +43,7 @@ class ListTags:
 class VerifyTags:
     def run(self, context :Context):
         c = TagsController(context)
-        index = c.list(selected=True)
+        index = c.list()
         verified = list(c.verify(index))
         if len(verified) == 0:
             print('All tags are in the dictionary')
@@ -55,16 +55,20 @@ class VerifyTags:
 @dataclass
 class InferTags:
     overwrite: bool = field(default=False, help='Overwrite existing tags')
-    model: str = field(default='vit', help='Model to use for inference. vit, swinv2 or convnext')
+    append: bool = field(default=False, help='Append to existing tags')
+    model: list[str] = field(default='vit', help='Model to use for inference. vit, swinv2 or convnext')
     def run(self, context :Context):
         c = Captions(context)
-        files = [x.path for x in c.list(selected=True) if self.overwrite or x.tags is None or len(x.tags) == 0]
+        files = [x.path for x in c.list(selected=True) if self.overwrite or self.append or x.tags is None or len(x.tags) == 0]
         if len(files) == 0:
             return
-        progress = tqdm(infer_tags(files, model=self.model), total=len(files))
+        progress = tqdm(infer_tags(files, models=self.model), total=len(files))
         progress.colour = 'green'
         for r in progress:
-            c.update(r.path, r.tags)
+            if self.append:
+                c.append(r.path, r.tags)
+            else:
+                c.update(r.path, r.tags)
 
 @dataclass
 class ReplaceTags:
@@ -82,7 +86,7 @@ class PruneTags:
     character :bool = field(default=False, help='Prune words included in characters')
     def run(self, context :Context):
         c = TagsController(context)
-        count, pruned = c.prune(self.min_length, 
+        _, pruned = c.prune(self.min_length, 
                         inclusion=self.inclusion,
                         character=self.character)
         pruned = list(pruned)
@@ -95,6 +99,17 @@ class PruneTags:
                 print(p)
 
 @dataclass
+class DistanceTags:
+    threshold : int = field(default=2, help='Threshold for distance tags')
+    def run(self, context :Context):
+        c = TagsController(context)
+        tags = list(c.distance(self.threshold))
+        tags.sort(key=lambda x: x[0])
+        tags.sort(key=lambda x: x[2], reverse=True)
+        for t1, t2, d in tags:
+            print(f'{d:2d}, {t1}, {t2}')
+
+@dataclass
 class Tags(ListTags):
     command :Any = subparsers(default=None,
                               subcommands={'add': AddTags,
@@ -103,7 +118,8 @@ class Tags(ListTags):
                                            'auto': InferTags, 
                                            'replace': ReplaceTags,
                                            'prune': PruneTags,
-                                           'verify': VerifyTags
+                                           'verify': VerifyTags,
+                                           'distance': DistanceTags
                                            })
     def run(self, context :Context):
         if self.command:

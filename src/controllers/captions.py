@@ -112,3 +112,9 @@ class Captions:
     def update(self, path: Path, tags: List[str]):
         with Txn.begin(self.context.conn) as cur:
             cur.execute("UPDATE images SET tags = ? WHERE path = ?", (json.dumps(tags), path.as_posix()))
+    def append(self, path: Path, tags: List[str]):
+        with Txn.begin(self.context.conn) as cur:
+            cur.execute("SELECT tags FROM images WHERE path = ?", (path.as_posix(), ))
+            old_tags = json.loads(cur.fetchone()[0])
+            new_tags = list(set(old_tags) | set(tags))
+            cur.execute("UPDATE images SET tags = ? WHERE path = ?", (json.dumps(new_tags), path.as_posix()))

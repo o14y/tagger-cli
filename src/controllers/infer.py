@@ -6,12 +6,14 @@ from simple_parsing import field, parse_known_args
 from PIL import Image
 from torch import Tensor, nn
 import numpy as np
+import os
+import tomllib as toml
 
-MODEL_REPO_MAP = {
-    'vit': 'SmilingWolf/wd-vit-tagger-v3',
-    'swinv2': 'SmilingWolf/wd-swinv2-tagger-v3',
-    'convnext': 'SmilingWolf/wd-convnext-tagger-v3',
-}
+config_path = os.path.join('assets/config.tom')
+with open(config_path, 'rb') as f:
+    config = toml.load(f)
+
+MODEL_REPO_MAP = config['MODELS']
 
 def pil_ensure_rgb(image: Image.Image) -> Image.Image:
     # convert to RGB/RGBA if not already (deals with palette images etc.)
@@ -143,7 +145,7 @@ class InferTagsResult:
     tags: List[str]
 
 def infer_tags(files: List[str],
-               model: str="vit", 
+               models: List[str]=["vit"], 
                gen_threshold: float = 0.35,
                char_threshold: float = 0.75
                ) -> Iterable[InferTagsResult]:
@@ -154,37 +156,39 @@ def infer_tags(files: List[str],
     from tqdm import tqdm
 
     # Check if the provided model is expected
-    if model not in MODEL_REPO_MAP:
-        raise ValueError(f'Unknown model "{model}". Available models: {list(MODEL_REPO_MAP.keys())}')
+    for model in models:
+        if model not in MODEL_REPO_MAP:
+            raise ValueError(f'Unknown model "{model}". Available models: {list(MODEL_REPO_MAP.keys())}')
 
     # Use GPU if available
     torch_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load the model
     log = logging.getLogger(__name__)
-    repo_id = MODEL_REPO_MAP.get(model)
+    for model in models:
+        repo_id = MODEL_REPO_MAP.get(model)
 
-    log.info(f'Loading model "{model}" from "{repo_id}"...')
-    model: nn.Module = timm.create_model('hf-hub:' + repo_id).eval()
-    state_dict = timm.models.load_state_dict_from_hf(repo_id)
-    model.load_state_dict(state_dict)
+        log.info(f'Loading model "{model}" from "{repo_id}"...')
+        m: nn.Module = timm.create_model('hf-hub:' + repo_id).eval()
+        state_dict = timm.models.load_state_dict_from_hf(repo_id)
+        m.load_state_dict(state_dict)
 
-    log.info('Loading tag list...')
-    labels: LabelData = _load_labels(repo_id=repo_id)
+        log.info('Loading tag list...')
+        labels: LabelData = _load_labels(repo_id=repo_id)
 
-    log.info('Creating data transform...')
-    transform = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
-    files = [Path(f).resolve() for f in files]
+        log.info('Creating data transform...')
+        transform = create_transform(**resolve_data_config(m.pretrained_cfg, model=model))
+        files = [Path(f).resolve() for f in files]
 
-    with torch.inference_mode():
-        # move model to GPU, if available
-        if torch_device.type != 'cpu':
-            model = model.to(torch_device)
+        with torch.inference_mode():
+            # move model to GPU, if available
+            if torch_device.type != 'cpu':
+                m = m.to(torch_device)
 
-        import time
-        for file in files:
-            caption = _process_one(file, gen_threshold, char_threshold, model, labels, transform, torch_device)
-            yield InferTagsResult(path=file, tags=caption)
+            import time
+            for file in files:
+                caption = _process_one(file, gen_threshold, char_threshold, m, labels, transform, torch_device)
+                yield InferTagsResult(path=file, tags=caption)
 
-        if torch_device.type != 'cpu':
-            model = model.to('cpu')
+            if torch_device.type != 'cpu':
+                m = m.to('cpu')
