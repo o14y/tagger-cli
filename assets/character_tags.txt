@@ -14,4 +14,4 @@
 ^short[_ ]hair[_ ]with[_ ]long[_ ]locks$
 ^(|[a-z]+[_ ])hair[_ ]bun$
 ^[a-z]+[_ ]bangs$
-^curly hair$
+^(curly|wavy|spiked|low-tied|dirll) hair$

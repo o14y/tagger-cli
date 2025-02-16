@@ -97,7 +97,8 @@ class Tags:
                 c.update(i.path, tags=res)
                 count += 1
         return count
-    def prune(self, min_length:int=3, inclusion=False, character=False) -> tuple[int, List[str]]:
+
+    def prune(self, /, min_length:int=3, *, inclusion=False, character=False, keep:List[str]=None) -> tuple[int, List[str]]:
         c = Captions(self.context)
         target = c.list(selected=True)
         count = 0
@@ -130,13 +131,16 @@ class Tags:
                 for i in target:
                     res = []
                     for t in i.tags:
-                        if not any(re.match(keyword, t) for keyword in keywords):
+                        if keep is not None and t in keep:
+                            res.append(t)
+                        elif not any(re.match(keyword, t) for keyword in keywords):
                             res.append(t)
                         elif t not in pruned:
                             pruned.append(t)
                     c.update(i.path, tags=res)
                     count += 1
-        return count, 
+        return count, pruned
+    
     def distance(self, threshold:int) -> Iterable[tuple[str, str, int]]:
         """
         タグ間のレーベンシュタイン距離を計算し、指定された閾値以下のものを返却します。
@@ -158,3 +162,24 @@ class Tags:
                 d = levenshtein.distance(t.tag, a.tag)
                 if d <= threshold:
                     yield (t.tag, a.tag, d)
+
+    def order(self, tag: str, index: int) -> int:
+        """
+        指定されたタグの順序を変更します。
+
+        引数:
+            tag (str): 対象のタグ
+            index (int): 移動先のインデックス
+
+        return:
+            int: 更新されたタグを含むキャプションの数
+        """
+        c = Captions(self.context)
+        target = c.list(selected=True, filter=tag)
+        count = 0
+        for t in target:
+            t.tags.pop(t.tags.index(tag))
+            t.tags.insert(index, tag)
+            c.update(t.path, tags=t.tags)
+            count+=1
+        return count

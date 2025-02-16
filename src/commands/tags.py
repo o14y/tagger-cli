@@ -84,11 +84,13 @@ class PruneTags:
     min_length :int = field(default=3, help='Length of tags to keep')
     inclusion :bool = field(default=False, help='Prune words included in other words')
     character :bool = field(default=False, help='Prune words included in characters')
+    keep :List[str] = field(default=None, help='List of tags to keep')
     def run(self, context :Context):
         c = TagsController(context)
         _, pruned = c.prune(self.min_length, 
                         inclusion=self.inclusion,
-                        character=self.character)
+                        character=self.character,
+                        keep=self.keep)
         pruned = list(pruned)
         pruned.sort()
         if len(pruned) == 0:
@@ -110,6 +112,14 @@ class DistanceTags:
             print(f'{d:2d}, {t1}, {t2}')
 
 @dataclass
+class OrderTags:
+    tag: str = field(positional=True, hint='Tag to move')
+    index: int = field(default=0, hint='Index to move the tag')
+    def run(self, context :Context):
+        c = TagsController(context)
+        c.order(self.tag, self.index)
+
+@dataclass
 class Tags(ListTags):
     command :Any = subparsers(default=None,
                               subcommands={'add': AddTags,
@@ -118,6 +128,7 @@ class Tags(ListTags):
                                            'auto': InferTags, 
                                            'replace': ReplaceTags,
                                            'prune': PruneTags,
+                                           'order': OrderTags,
                                            'verify': VerifyTags,
                                            'distance': DistanceTags
                                            })
